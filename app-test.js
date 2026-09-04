@@ -187,4 +187,56 @@ describe('Testing Other Endpoints', () => {
         });
     });
 
+    describe('it should serve application assets', () => {
+        it('it serves the home page', (done) => {
+          chai.request(server)
+              .get('/')
+              .end((err, res) => {
+                    res.should.have.status(200);
+                done();
+              });
+        });
+
+        it('it serves the explicit index route', (done) => {
+          chai.request(server)
+              .get('/index.html')
+              .end((err, res) => {
+                    res.should.have.status(200);
+                done();
+              });
+        });
+
+        it('it serves the browser controller', (done) => {
+          chai.request(server)
+              .get('/app-controller.js')
+              .end((err, res) => {
+                    res.should.have.status(200);
+                done();
+              });
+        });
+
+        it('it serves the OpenAPI document', (done) => {
+          chai.request(server)
+              .get('/api-docs')
+              .end((err, res) => {
+                    res.should.have.status(200);
+                    res.body.should.have.property('openapi');
+                done();
+              });
+        });
+    });
+
+    describe('it should reject an unknown planet', () => {
+        it('it returns 404 for an unknown planet id', (done) => {
+          chai.request(server)
+              .post('/planet')
+              .send({ id: 99 })
+              .end((err, res) => {
+                    res.should.have.status(404);
+                    res.body.should.have.property('error').eql('Planet not found');
+                done();
+              });
+        });
+    });
+
 });
