@@ -1,5 +1,4 @@
 const path = require('path');
-const fs = require('fs')
 const express = require('express');
 const OS = require('os');
 const mongoose = require("mongoose");
@@ -10,19 +9,8 @@ const cors = require('cors')
 app.use(express.json());
 app.use(cors())
 
-const mongoOptions = {};
-
-if (process.env.MONGO_USERNAME) {
-    mongoOptions.user = process.env.MONGO_USERNAME;
-}
-
-if (process.env.MONGO_PASSWORD) {
-    mongoOptions.pass = process.env.MONGO_PASSWORD;
-}
-
 mongoose.connect(
-    process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/solar-system',
-    mongoOptions
+    process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/solar-system'
 ).catch((error) => {
     console.error('MongoDB connection failed:', error.message);
 });
@@ -71,15 +59,8 @@ app.get('/app-controller.js', function(req, res) {
 });
 
 app.get('/api-docs', (req, res) => {
-    fs.readFile('oas.json', 'utf8', (err, data) => {
-      if (err) {
-        console.error('Error reading file:', err);
-        res.status(500).send('Error reading file');
-      } else {
-        res.json(JSON.parse(data));
-      }
-    });
-  });
+    res.sendFile(path.join(__dirname, 'oas.json'));
+});
   
 app.get('/os',   function(req, res) {
     res.setHeader('Content-Type', 'application/json');
