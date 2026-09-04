@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Seed test database
+        run: docker exec --interactive "${{ job.services.mongodb.id }}" mongosh solar-system --quiet < ci/mongo-init.js
+
+      - name: Run tests and enforce coverage
+        run: npm run coverage
+        env:
+          MONGO_URI: mongodb://127.0.0.1:27017/solar-system
+
+      - name: Build Docker image
+        run: docker build --tag "solar-system:${GITHUB_SHA}" .
+
+      - name: Smoke-test Docker image
+        run: |
+          set -eu
+          docker run --detach \
+            --name solar-system-smoke \
+            --network host \
+            --env MONGO_URI=mongodb://127.0.0.1:27017/solar-system \
+            "solar-system:${GITHUB_SHA}"
+
+          attempt=0
+          until curl --fail --silent http://127.0.0.1:3000/live | grep -q '"status":"live"'
+          do
+            attempt=$((attempt + 1))
+            if [ "$attempt" -ge 20 ]; then
+              docker logs solar-system-smoke
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Clean up smoke-test container
+        if: always()
+        run: docker rm --force solar-system-smoke >/dev/null 2>&1 || true
